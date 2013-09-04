@@ -1,0 +1,6 @@
+liblmdb.so
+__pycache__/
+*.pyc
+
+.*.sw?
+.sw?
