@@ -390,7 +390,7 @@ class Environment(object):
 	def close(self):
 		if self._handle is None:
 			self._lib.env_close(self._handle)
-		del self._handle
+			self._handle = None
 
 	def copy(self, path):
 		self._lib.env_copy(self._handle, path)
@@ -534,7 +534,8 @@ class Database(object):
 	def get(self, key):
 		if not isinstance(key, Value):
 			key = Value.from_object(key)
-		return self._lib.get(self.transaction._handle, self._handle, key)
+		res = self._lib.get(self.transaction._handle, self._handle, key)
+		return ctypes.string_at(res.mv_data, res.mv_size)
 
 	def put(self, key, value):
 		if not isinstance(key, Value):
