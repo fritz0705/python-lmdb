@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # coding: utf-8
 
+import pickle
 import ctypes
 import ctypes.util
 
@@ -29,6 +30,23 @@ class EnvInfo(ctypes.Structure):
 class Value(ctypes.Structure):
 	_fields_ = [("mv_size", ctypes.c_size_t),
 		("mv_data", ctypes.c_void_p)]
+
+	@classmethod
+	def from_bytes(cls, b):
+		self = cls()
+		self.mv_size = len(b)
+		self.mv_data = ctypes.cast(ctypes.create_string_buffer(b), ctypes.c_void_p)
+		return self
+
+	@classmethod
+	def from_object(cls, obj):
+		if isinstance(obj, str):
+			obj = obj.encode()
+		elif isinstance(obj, bytes):
+			pass
+		else:
+			obj = pickle.dumps(obj)
+		return cls.from_bytes(obj)
 
 class LibLMDB(object):
 	def __init__(self, lib=None):
@@ -167,9 +185,26 @@ class LibLMDB(object):
 		lib.mdb_drop.restype = ctypes.c_int
 		lib.mdb_drop.argtypes = [ctypes.c_void_p, ctypes.c_uint, ctypes.c_bool]
 
+		# mdb_get
+		lib.mdb_get.restype = ctypes.c_int
+		lib.mdb_get.argtypes = [ctypes.c_void_p, ctypes.c_uint,
+			ctypes.POINTER(Value), ctypes.POINTER(Value)]
+
+		# mdb_put
+		lib.mdb_put.restype = ctypes.c_int
+		lib.mdb_put.argtypes = [ctypes.c_void_p, ctypes.c_uint,
+			ctypes.POINTER(Value), ctypes.POINTER(Value)]
+		
+		# mdb_del
+		lib.mdb_del.restype = ctypes.c_int
+		lib.mdb_del.argtypes = [ctypes.c_void_p, ctypes.c_uint,
+			ctypes.POINTER(Value), ctypes.POINTER(Value)]
+
 	def version(self):
 		major, minor, patch = ctypes.c_int(), ctypes.c_int(), ctypes.c_int()
-		res = self._lib.mdb_version(ctypes.pointer(major), ctypes.pointer(minor), ctypes.pointer(patch)).decode()
+		res = self._lib.mdb_version(ctypes.pointer(major),
+			ctypes.pointer(minor),
+			ctypes.pointer(patch)).decode()
 		return major.value, minor.value, patch.value, res
 
 	def strerror(self, errno):
@@ -183,6 +218,8 @@ class LibLMDB(object):
 		return val
 
 	def env_open(self, env, path, flags, mode):
+		if isinstance(path, str):
+			path = path.encode()
 		err = self._lib.mdb_env_open(env, path, flags, mode)
 		if err != 0:
 			raise Error(self.strerror(err))
@@ -236,7 +273,7 @@ class LibLMDB(object):
 		err = self._lib.mdb_env_get_path(env, ctypes.pointer(res))
 		if err != 0:
 			raise Error(self.strerror(err))
-		return res.value
+		return res.value.decode()
 
 	def env_set_mapsize(self, env, size):
 		err = self._lib.mdb_env_set_mapsize(env, size)
@@ -292,6 +329,8 @@ class LibLMDB(object):
 			raise Error(self.strerror(err))
 	
 	def dbi_open(self, txn, name, flags):
+		if isinstance(name, str):
+			name = name.encode()
 		res = ctypes.c_uint()
 		err = self._lib.mdb_dbi_open(txn, name, flags, ctypes.pointer(res))
 		if err != 0:
@@ -320,6 +359,23 @@ class LibLMDB(object):
 		if err != 0:
 			raise Error(self.strerror(err))
 
+	def get(self, txn, dbi, key):
+		res = Value()
+		err = self._lib.mdb_get(txn, dbi, ctypes.pointer(key), ctypes.pointer(res))
+		if err != 0:
+			raise Error(self.strerror(err))
+		return res
+
+	def put(self, txn, dbi, key, value):
+		err = self._lib.mdb_put(txn, dbi, ctypes.pointer(key), ctypes.pointer(value))
+		if err != 0:
+			raise Error(self.strerror(err))
+	
+	def delete(self, txn, dbi, key, value):
+		err = self._lib.mdb_del(txn, dbi, ctypes.pointer(key), ctypes.pointer(value))
+		if err != 0:
+			raise Error(self.strerror(err))
+	
 class Environment(object):
 	def __init__(self, lib):
 		self._lib = lib
@@ -332,7 +388,8 @@ class Environment(object):
 		self._lib.env_open(self._handle, path, flags, mode)
 
 	def close(self):
-		self._lib.env_close(self._handle)
+		if self._handle is None:
+			self._lib.env_close(self._handle)
 		del self._handle
 
 	def copy(self, path):
@@ -407,7 +464,12 @@ class Transaction(object):
 			lib = env._lib
 		self._lib = lib
 		self.env = env
-		self._handle = self._lib.txn_begin(env._handle, parent._handle if parent is not None else None, flags)
+		self._handle = self._lib.txn_begin(env._handle,
+			parent._handle if parent is not None else None,
+			flags)
+	
+	def __del__(self):
+		self.abort()
 
 	def __enter__(self):
 		return self
@@ -422,10 +484,14 @@ class Transaction(object):
 		return Transaction(self.env, self, flags)
 
 	def commit(self):
-		self._lib.txn_commit(self._handle)
+		if self._handle is not None:
+			self._lib.txn_commit(self._handle)
+			self._handle = None
 	
 	def abort(self):
-		self._lib.txn_abort(self._handle)
+		if self._handle is not None:
+			self._lib.txn_abort(self._handle)
+			self._handle = None
 
 	def reset(self):
 		self._lib.txn_reset(self._handle)
@@ -447,6 +513,9 @@ class Database(object):
 	def __exit__(self, exc_type, exc_value, traceback):
 		self.close()
 
+	def __del__(self):
+		self.close()
+
 	def stat(self):
 		return self._lib.stat(self.transaction._handle, self._handle)
 
@@ -463,24 +532,23 @@ class Database(object):
 		self._lib.drop(self.transaction._handle, self._handle, True)
 
 	def get(self, key):
-		if isinstance(key, str):
-			key = key.encode()
-		if isinstance(key, bytes):
-			new_key = Value()
-			new_key.mv_size = len(key)
-			new_key.mv_data = ctypes.c_char_p(key)
-			key = new_key
-		elif isinstance(key, Value):
-			pass
-		else:
-			raise TypeError("Expected key to be str, bytes or Value, got {}".format(type(key)))
+		if not isinstance(key, Value):
+			key = Value.from_object(key)
 		return self._lib.get(self.transaction._handle, self._handle, key)
 
 	def put(self, key, value):
-		pass
+		if not isinstance(key, Value):
+			key = Value.from_object(key)
+		if not isinstance(value, Value):
+			value = Value.from_object(value)
+		self._lib.put(self.transaction._handle, self._handle, key, value)
 
 	def delete(self, key, value=None):
-		pass
+		if not isinstance(key, Value):
+			key = Value.from_object(key)
+		if value is not None and not isinstance(value, Value):
+			value = Value.from_object(value)
+		self._lib.delete(self.transaction._handle, self._handle, key, value)
 
 	def __getitem__(self, key):
 		return self.get(key)
@@ -494,9 +562,6 @@ class Database(object):
 	@property
 	def env(self):
 		return self.transaction.env
-
-class Cursor(object):
-	pass
 
 if __name__ == "__main__":
 	main()
