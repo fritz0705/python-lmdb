@@ -450,7 +450,7 @@ class LibLMDB(object):
 	
 	def delete(self, txn, dbi, key, value):
 		"""Delete item from database."""
-		err = self._lib.mdb_del(txn, dbi, ctypes.pointer(key), ctypes.pointer(value))
+		err = self._lib.mdb_del(txn, dbi, ctypes.pointer(key), None if value is None else ctypes.pointer(value))
 		if err != 0:
 			raise Error(err, self.strerror(err))
 	
