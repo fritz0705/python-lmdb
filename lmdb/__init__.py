@@ -5,13 +5,45 @@ import pickle
 import ctypes
 import ctypes.util
 
+MDB_RDONLY = 0x20000
+MDB_NOSYNC = 0x10000
+MDB_NOSUBDIR = 0x4000
+MDB_FIXEDMAP = 0x01
+MDB_WRITEMAP = 0x80000
+MDB_MAPASYNC = 0x100000
+MDB_NOTLS = 0x200000
+
+MDB_REVERSEKEY = 0x02
+MDB_DUPSORT = 0x04
+MDB_INTEGERKEY = 0x08
+MDB_DUPFIXED = 0x10
+MDB_INTEGERDUP = 0x20
+MDB_REVERSEDUP = 0x40
+MDB_CREATE = 0x40000
+
+MDB_NOOVERWRITE = 0x10
+MDB_NODUPDATA = 0x20
+MDB_CURRENT = 0x40
+MDB_RESERVE = 0x10000
+MDB_APPEND = 0x20000
+MDB_APPENDDUP = 0x40000
+MDB_MULTIPLE = 0x80000
+
 class Error(Exception):
 	"""Extended Exception class for LMDB exceptions which decodes bytes objects
 	by default."""
-	def __init__(self, msg):
+	def __init__(self, code, msg):
 		if isinstance(msg, bytes):
 			msg = msg.decode()
-		Exception.__init__(self, msg)
+		Exception.__init__(self, code, msg)
+
+	@property
+	def message(self):
+		return self.args[1]
+
+	@property
+	def code(self):
+		return self.args[0]
 
 class Stat(ctypes.Structure):
 	_fields_ = [("ms_psize", ctypes.c_uint),
@@ -229,7 +261,7 @@ class LibLMDB(object):
 		val = ctypes.c_void_p()
 		err = self._lib.mdb_env_create(ctypes.pointer(val))
 		if err != 0:
-			raise Error(self.strerror(err))
+			raise Error(err, self.strerror(err))
 		return val
 
 	def env_open(self, env, path, flags, mode):
@@ -238,26 +270,26 @@ class LibLMDB(object):
 			path = path.encode()
 		err = self._lib.mdb_env_open(env, path, flags, mode)
 		if err != 0:
-			raise Error(self.strerror(err))
+			raise Error(err, self.strerror(err))
 	
 	def env_copy(self, env, path):
 		"""Copy environment to provided path."""
 		err = self._lib.mdb_env_copy(env, path)
 		if err != 0:
-			raise Error(self.strerror(err))
+			raise Error(err, self.strerror(err))
 
 	def env_copyfd(self, env, fd):
 		"""Copy environment to provided file descriptor."""
 		err = self._lib.mdb_env_copyfd(env, fd)
 		if err != 0:
-			raise Error(self.strerror(err))
+			raise Error(err, self.strerror(err))
 	
 	def env_stat(self, env):
 		"""Return Stat object from environment handle."""
 		res = Stat()
 		err = self._lib.mdb_env_stat(env, ctypes.pointer(res))
 		if err != 0:
-			raise Error(self.strerror(err))
+			raise Error(err, self.strerror(err))
 		return res
 	
 	def env_info(self, env):
@@ -265,14 +297,14 @@ class LibLMDB(object):
 		res = EnvInfo()
 		err = self._lib.mdb_env_info(env, ctypes.pointer(res))
 		if err != 0:
-			raise Error(self.strerror(err))
+			raise Error(err, self.strerror(err))
 		return res
 	
 	def env_sync(self, env, force):
 		"""Sync environment."""
 		err = self._lib.mdb_env_sync(env, force)
 		if err != 0:
-			raise Error(self.strerror(err))
+			raise Error(err, self.strerror(err))
 
 	def env_close(self, env):
 		"""Destroy environment handle."""
@@ -282,14 +314,14 @@ class LibLMDB(object):
 		"""Set flags for environment handle."""
 		err = self._lib.mdb_env_set_flags(env, flags, onoff)
 		if err != 0:
-			raise Error(self.strerror(err))
+			raise Error(err, self.strerror(err))
 	
 	def env_get_flags(self, env):
 		"""Get flags for environment handle."""
 		res = ctypes.c_uint()
 		err = self._lib.mdb_env_get_flags(env, ctypes.pointer(res))
 		if err != 0:
-			raise Error(self.strerror(err))
+			raise Error(err, self.strerror(err))
 		return res.value
 
 	def env_get_path(self, env):
@@ -297,34 +329,34 @@ class LibLMDB(object):
 		res = ctypes.c_char_p()
 		err = self._lib.mdb_env_get_path(env, ctypes.pointer(res))
 		if err != 0:
-			raise Error(self.strerror(err))
+			raise Error(err, self.strerror(err))
 		return res.value.decode()
 
 	def env_set_mapsize(self, env, size):
 		"""Set mapping size for environment handle."""
 		err = self._lib.mdb_env_set_mapsize(env, size)
 		if err != 0:
-			raise Error(self.strerror(err))
+			raise Error(err, self.strerror(err))
 
 	def env_set_maxreaders(self, env, readers):
 		"""Set maximum readers for environment handle."""
 		err = self._lib.mdb_env_set_maxreaders(env, readers)
 		if err != 0:
-			raise Error(self.strerror(err))
+			raise Error(err, self.strerror(err))
 	
 	def env_get_maxreaders(self, env):
 		"""Get maximum readers for environment handle."""
 		res = ctypes.c_uint()
 		err = self._lib.mdb_env_get_maxreaders(env, ctypes.pointer(res))
 		if err != 0:
-			raise Error(self.strerror(err))
+			raise Error(err, self.strerror(err))
 		return res.value
 
 	def env_set_maxdbs(self, env, dbs):
 		"""Set maximum database count for environment handle."""
 		err = self._lib.mdb_env_set_maxdbs(env, dbs)
 		if err != 0:
-			raise Error(self.strerror(err))
+			raise Error(err, self.strerror(err))
 
 	def env_get_maxkeysize(self, env):
 		"""Get maximum key size for environment handle."""
@@ -337,7 +369,7 @@ class LibLMDB(object):
 		res = ctypes.c_void_p()
 		err = self._lib.mdb_txn_begin(env, parent, flags, ctypes.pointer(res))
 		if err != 0:
-			raise Error(self.strerror(err))
+			raise Error(err, self.strerror(err))
 		return res
 
 	def txn_env(self, txn):
@@ -349,7 +381,7 @@ class LibLMDB(object):
 		"""Commit and invalidate transaction handle."""
 		err = self._lib.mdb_txn_commit(txn)
 		if err != 0:
-			raise Error(self.strerror(err))
+			raise Error(err, self.strerror(err))
 	
 	def txn_abort(self, txn):
 		"""Abort and invalidate transaction handle."""
@@ -363,7 +395,7 @@ class LibLMDB(object):
 		"""Prepare transaction handle for reuse after reset."""
 		err = self._lib.mdb_txn_renew(txn)
 		if err != 0:
-			raise Error(self.strerror(err))
+			raise Error(err, self.strerror(err))
 	
 	def dbi_open(self, txn, name, flags):
 		"""Open database handle by transaction handle, optional name and flags."""
@@ -372,7 +404,7 @@ class LibLMDB(object):
 		res = ctypes.c_uint()
 		err = self._lib.mdb_dbi_open(txn, name, flags, ctypes.pointer(res))
 		if err != 0:
-			raise Error(self.strerror(err))
+			raise Error(err, self.strerror(err))
 		return res
 
 	def stat(self, txn, dbi):
@@ -380,7 +412,7 @@ class LibLMDB(object):
 		res = Stat()
 		err = self._lib.mdb_stat(txn, dbi, ctypes.pointer(res))
 		if err != 0:
-			raise Error(self.strerror(err))
+			raise Error(err, self.strerror(err))
 		return res
 
 	def dbi_flags(self, txn, dbi):
@@ -388,7 +420,7 @@ class LibLMDB(object):
 		res = ctypes.c_uint()
 		err = self._lib.mdb_dbi_flags(txn, dbi, ctypes.pointer(res))
 		if err != 0:
-			raise Error(self.strerror(err))
+			raise Error(err, self.strerror(err))
 		return res
 
 	def dbi_close(self, txn, dbi):
@@ -400,27 +432,27 @@ class LibLMDB(object):
 		close transaction handle if delete is True."""
 		err = self._lib.mdb_drop(txn, dbi, delete)
 		if err != 0:
-			raise Error(self.strerror(err))
+			raise Error(err, self.strerror(err))
 
 	def get(self, txn, dbi, key):
 		"""Get items from database handle."""
 		res = Value()
 		err = self._lib.mdb_get(txn, dbi, ctypes.pointer(key), ctypes.pointer(res))
 		if err != 0:
-			raise Error(self.strerror(err))
+			raise Error(err, self.strerror(err))
 		return res
 
 	def put(self, txn, dbi, key, value, flags):
 		"""Put item into database."""
 		err = self._lib.mdb_put(txn, dbi, ctypes.pointer(key), ctypes.pointer(value), flags)
 		if err != 0:
-			raise Error(self.strerror(err))
+			raise Error(err, self.strerror(err))
 	
 	def delete(self, txn, dbi, key, value):
 		"""Delete item from database."""
 		err = self._lib.mdb_del(txn, dbi, ctypes.pointer(key), ctypes.pointer(value))
 		if err != 0:
-			raise Error(self.strerror(err))
+			raise Error(err, self.strerror(err))
 	
 class Environment(object):
 	"""Instances of this class represents an environment handle and provide higher
