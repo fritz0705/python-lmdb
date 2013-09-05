@@ -723,6 +723,13 @@ class Database(object):
 	def __setitem__(self, key, value):
 		self.put(key, value)
 
+	def __contains__(self, key):
+		try:
+			self[key]
+		except KeyError:
+			return False
+		return True
+
 	def __delitem__(self, key):
 		try:
 			self.delete(key)
