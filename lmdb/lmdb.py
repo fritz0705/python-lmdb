@@ -589,6 +589,7 @@ class Transaction(object):
 	"""Instances of Transaction represents an open transaction."""
 
 	_primary_database = None
+	_handle = None
 
 	def __init__(self, env, db=None, parent=None, flags=0, lib=None):
 		if lib is None:
@@ -614,9 +615,10 @@ class Transaction(object):
 	
 	def begin(self, parent=None, flags=0):
 		"""Begin new transaction by allocating a transaction handle."""
-		self._handle = self._lib.txn_begin(self.env._handle,
-			parent._handle if parent is not None else None,
-			flags)
+		if self._handle is None:
+			self._handle = self._lib.txn_begin(self.env._handle,
+				parent._handle if parent is not None else None,
+				flags)
 
 	def transaction(self, flags=0):
 		"""Return new sub-transaction from this transaction."""
@@ -625,26 +627,20 @@ class Transaction(object):
 	def commit(self):
 		"""Commit this transaction. After committing it you have to rebegin it."""
 		if self._handle is not None:
-			if self._primary_database is not None:
-				self.primary_database.close()
-				self.primary_database = None
+			self._close_databases()
 			self._lib.txn_commit(self._handle)
 			self._handle = None
 	
 	def abort(self):
 		"""Abort this transaction. After aborting it you have to rebegin it."""
 		if self._handle is not None:
-			if self._primary_database is not None:
-				self.primary_database.close()
-				self._primary_database = None
+			self._close_databases()
 			self._lib.txn_abort(self._handle)
 			self._handle = None
 
 	def reset(self):
 		"""Reset this transaction."""
-		if self._primary_database is not None:
-			self.primary_database.close()
-			self.primary_database = None
+		self._close_databases()
 		self._lib.txn_reset(self._handle)
 
 	def renew(self):
@@ -666,6 +662,11 @@ class Transaction(object):
 
 	def __contains__(self, key):
 		return key in self.primary_database
+
+	def _close_databases(self):
+		if self._primary_database is not None:
+			self.primary_database.close()
+			self._primary_database = None
 
 	@property
 	def primary_database(self):

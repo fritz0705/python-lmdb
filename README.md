@@ -8,11 +8,11 @@ Usage
 
     import lmdb
     lib = lmdb.LibLMDB()
-    env = lmdb.Environment(lib)
-    env.open("database", 0, 0o644)
-    with env.transaction() as tr:
-        with lmdb.Database(tr, None) as db:
-            db["key"] = "value"
+    env = lmdb.Environment(lib, "data")
+    with env.transaction() as txn:
+        txn[b"key"] = b"value"
+        print(txn[b"key"])
+        del txn[b"key"]
 
 Web API
 -------
