@@ -93,7 +93,7 @@ class LibLMDB(object):
 		if lib is None:
 			lib = ctypes.util.find_library("lmdb")
 			if lib is None:
-				raise ValueError("Could not find lmdb shared object")
+				lib = "liblmdb.so"
 		if isinstance(lib, str):
 			lib = ctypes.cdll.LoadLibrary(lib)
 		elif not isinstance(lib, ctypes.CDLL):
