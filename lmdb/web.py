@@ -34,9 +34,18 @@ class Application(bottle.Bottle):
 
 	def handle_index(self):
 		bottle.response.content_type = "application/json"
+		stat = self.environment.stat
 		return json.dumps({
 			"version": self.VERSION,
-			"name": self.name
+			"name": self.name,
+			"mdb": {
+				"psize": stat.ms_psize,
+				"depth": stat.ms_depth,
+				"branch_pages": stat.ms_branch_pages,
+				"leaf_pages": stat.ms_leaf_pages,
+				"overflow_pages": stat.ms_overflow_pages,
+				"entries": stat.ms_entries
+			}
 		})
 
 	def handle_get(self, key):
