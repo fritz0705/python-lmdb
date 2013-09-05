@@ -479,6 +479,8 @@ class Environment(object):
 	"""Instances of this class represents an environment handle and provide higher
 	level access to it's properties."""
 
+	_handle = None
+
 	def __init__(self, lib, path=None):
 		self._lib = lib
 		self.create()
