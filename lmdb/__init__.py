@@ -714,7 +714,7 @@ class Database(object):
 	def __getitem__(self, key):
 		try:
 			return self.get(key)
-		except lmdb.Error as e:
+		except Error as e:
 			if e.code == MDB_NOTFOUND:
 				raise KeyError(key)
 			else:
@@ -726,7 +726,7 @@ class Database(object):
 	def __delitem__(self, key):
 		try:
 			self.delete(key)
-		except lmdb.Error as e:
+		except Error as e:
 			if e.code == MDB_NOTFOUND:
 				raise KeyError(key)
 			else:
