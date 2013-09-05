@@ -22,6 +22,5 @@ setuptools.setup(
 		"Programming Language :: Python :: 3.3",
 		"Topic :: Database :: Database Engines/Servers"
 	],
-	long_description=long_description,
-	intsall_requires=[]
+	long_description=long_description
 )
