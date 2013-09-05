@@ -107,7 +107,7 @@ class Application(bottle.Bottle):
 						if key not in txn:
 							raise KeyError(key)
 					elif action == "set":
-						txn[key] = action
+						txn[key] = step.get("value", b"")
 					elif action == "delete":
 						del txn[key]
 				except KeyError:
