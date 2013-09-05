@@ -193,7 +193,7 @@ class LibLMDB(object):
 		# mdb_put
 		lib.mdb_put.restype = ctypes.c_int
 		lib.mdb_put.argtypes = [ctypes.c_void_p, ctypes.c_uint,
-			ctypes.POINTER(Value), ctypes.POINTER(Value)]
+			ctypes.POINTER(Value), ctypes.POINTER(Value), ctypes.c_uint]
 		
 		# mdb_del
 		lib.mdb_del.restype = ctypes.c_int
@@ -366,8 +366,8 @@ class LibLMDB(object):
 			raise Error(self.strerror(err))
 		return res
 
-	def put(self, txn, dbi, key, value):
-		err = self._lib.mdb_put(txn, dbi, ctypes.pointer(key), ctypes.pointer(value))
+	def put(self, txn, dbi, key, value, flags):
+		err = self._lib.mdb_put(txn, dbi, ctypes.pointer(key), ctypes.pointer(value), flags)
 		if err != 0:
 			raise Error(self.strerror(err))
 	
@@ -537,12 +537,12 @@ class Database(object):
 		res = self._lib.get(self.transaction._handle, self._handle, key)
 		return ctypes.string_at(res.mv_data, res.mv_size)
 
-	def put(self, key, value):
+	def put(self, key, value, flags=0):
 		if not isinstance(key, Value):
 			key = Value.from_object(key)
 		if not isinstance(value, Value):
 			value = Value.from_object(value)
-		self._lib.put(self.transaction._handle, self._handle, key, value)
+		self._lib.put(self.transaction._handle, self._handle, key, value, flags)
 
 	def delete(self, key, value=None):
 		if not isinstance(key, Value):
