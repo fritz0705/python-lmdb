@@ -636,7 +636,7 @@ class Transaction(object):
 		if self._handle is not None:
 			if self._primary_database is not None:
 				self.primary_database.close()
-				self.primary_database = None
+				self._primary_database = None
 			self._lib.txn_abort(self._handle)
 			self._handle = None
 
