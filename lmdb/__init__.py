@@ -436,7 +436,7 @@ class Environment(object):
 	def create(self):
 		"""Create environment handle for this environment. This is done on __init__,
 		but is necessary after closing."""
-		self._handle = lib.env_create()
+		self._handle = self._lib.env_create()
 
 	def open(self, path, flags=0, mode=0o644):
 		"""Associate this environment handle with a database path."""
@@ -531,7 +531,7 @@ class Environment(object):
 class Transaction(object):
 	"""Instances of Transaction represents an open transaction."""
 
-	_database = None
+	_primary_database = None
 
 	def __init__(self, env, parent=None, flags=0, lib=None):
 		if lib is None:
@@ -558,7 +558,7 @@ class Transaction(object):
 	
 	def begin(self, parent=None, flags=0):
 		"""Begin new transaction by allocating a transaction handle."""
-		self._handle = self._lib.txn_begin(env._handle,
+		self._handle = self._lib.txn_begin(self.env._handle,
 			parent._handle if parent is not None else None,
 			flags)
 
