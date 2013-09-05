@@ -577,16 +577,14 @@ class Transaction(object):
 
 	def __enter__(self):
 		if self._handle is None:
-			raise Error("Transaction is finished")
+			self.begin()
 		return self
 
 	def __exit__(self, exc_type, exc_value, traceback):
 		if exc_type is None:
 			self.commit()
-			self.begin()
 		else:
 			self.abort()
-			self.begin()
 	
 	def begin(self, parent=None, flags=0):
 		"""Begin new transaction by allocating a transaction handle."""
