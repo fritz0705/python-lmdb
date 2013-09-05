@@ -29,6 +29,27 @@ MDB_APPEND = 0x20000
 MDB_APPENDDUP = 0x40000
 MDB_MULTIPLE = 0x80000
 
+MDB_SUCCESS = 0
+MDB_KEYEXIST = -30799
+MDB_NOTFOUND = -30798
+MDB_PAGE_NOTFOUND = -30797
+MDB_CORRUPTED = -30796
+MDB_PANIC = -30795
+MDB_VERSION_MISMATCH = -30794
+MDB_INVALID = -30793
+MDB_MAP_FULL = -30792
+MDB_DBS_FULL = -30791
+MDB_READERS_FULL = -30790
+MDB_TLS_FULL = -30789
+MDB_TXN_FULL = -30788
+MDB_CURSOR_FULL = -30787
+MDB_PAGE_FULL = -30786
+MDB_MAP_RESIZED = -30785
+MDB_INCOMPATIBLE = -30784
+MDB_BAD_RSLOT = -30783
+MDB_BAD_TXN = -30782
+MDB_BAD_VALSIZE = -30781
+
 class Error(Exception):
 	"""Extended Exception class for LMDB exceptions which decodes bytes objects
 	by default."""
@@ -691,13 +712,25 @@ class Database(object):
 		self._lib.delete(self.transaction._handle, self._handle, key, value)
 
 	def __getitem__(self, key):
-		return self.get(key)
+		try:
+			return self.get(key)
+		except lmdb.Error as e:
+			if e.code == MDB_NOTFOUND:
+				raise KeyError(key)
+			else:
+				raise
 
 	def __setitem__(self, key, value):
 		self.put(key, value)
 
 	def __delitem__(self, key):
-		self.delete(key)
+		try:
+			self.delete(key)
+		except lmdb.Error as e:
+			if e.code == MDB_NOTFOUND:
+				raise KeyError(key)
+			else:
+				raise
 
 	@property
 	def env(self):
