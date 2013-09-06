@@ -482,11 +482,11 @@ class Environment(object):
 
 	_handle = None
 
-	def __init__(self, lib, path=None):
+	def __init__(self, lib, path=None, flags=None, mode=None):
 		self._lib = lib
 		self.create()
 		if path is not None:
-			self.open(path)
+			self.open(path, flags, mode)
 
 	def __del__(self):
 		self.close()
@@ -496,8 +496,10 @@ class Environment(object):
 		but is necessary after closing."""
 		self._handle = self._lib.env_create()
 
-	def open(self, path, flags=0, mode=0o644):
+	def open(self, path, flags=None, mode=None):
 		"""Associate this environment handle with a database path."""
+		if flags is None: flags = 0
+		if mode is None: mode = 0o644
 		self._lib.env_open(self._handle, path, flags, mode)
 
 	def close(self):
