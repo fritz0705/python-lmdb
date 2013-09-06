@@ -35,6 +35,7 @@ class Application(bottle.Bottle):
 	def handle_index(self):
 		bottle.response.content_type = "application/json"
 		stat = self.environment.stat
+		envinfo = self.environment.info
 		return json.dumps({
 			"version": self.VERSION,
 			"name": self.name,
@@ -45,6 +46,14 @@ class Application(bottle.Bottle):
 				"leaf_pages": stat.ms_leaf_pages,
 				"overflow_pages": stat.ms_overflow_pages,
 				"entries": stat.ms_entries
+			},
+			"env": {
+				"mapaddr": envinfo.me_mapaddr,
+				"mapsize": envinfo.me_mapsize,
+				"last_pgno": envinfo.me_last_pgno,
+				"last_txnid": envinfo.me_last_txnid,
+				"maxreaders": envinfo.me_maxreaders,
+				"numreaders": envinfo.me_numreaders
 			}
 		})
 
@@ -59,7 +68,11 @@ class Application(bottle.Bottle):
 		except KeyError:
 			bottle.response.status = 404
 			return json.dumps(self._key_error_to_json(key))
-		bottle.response.content_type = "application/octet-stream"
+		content_type = bottle.request.query.get("type", "binary")
+		bottle.response.content_type = {
+			"binary": "application/octet-stream",
+			"plain": "text/plain"
+		}[content_type]
 		return data
 
 	def handle_set(self, key):
