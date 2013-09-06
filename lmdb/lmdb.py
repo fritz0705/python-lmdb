@@ -519,7 +519,7 @@ class Environment(object):
 	@property
 	def info(self):
 		"""Return EnvInfo object for this environment."""
-		return self._lib.env_stat(self._handle)
+		return self._lib.env_info(self._handle)
 
 	def sync(self, force=False):
 		"""Sync this environment."""
