@@ -3,6 +3,7 @@
 
 import pickle
 import os
+import os.path
 import ctypes
 import ctypes.util
 
@@ -500,6 +501,8 @@ class Environment(object):
 		"""Associate this environment handle with a database path."""
 		if flags is None: flags = 0
 		if mode is None: mode = 0o644
+		if os.path.isfile(path):
+			flags |= lmdb.MDB_NOSUBDIR
 		self._lib.env_open(self._handle, path, flags, mode)
 
 	def close(self):
