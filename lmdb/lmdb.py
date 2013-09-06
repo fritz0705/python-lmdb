@@ -52,6 +52,25 @@ MDB_BAD_RSLOT = -30783
 MDB_BAD_TXN = -30782
 MDB_BAD_VALSIZE = -30781
 
+MDB_FIRST = 0
+MDB_FIRST_DUP = 1
+MDB_GET_BOTH = 2
+MDB_GET_BOTH_RANGE = 3
+MDB_GET_CURRENT = 4
+MDB_GET_MULTIPLE = 5
+MDB_LAST = 6
+MDB_LAST_DUP = 7
+MDB_NEXT = 8
+MDB_NEXT_DUP = 9
+MDB_NEXT_MULTIPLE = 10
+MDB_NEXT_NODUP = 11
+MDB_PREV = 12
+MDB_PREV_DUP = 13
+MDB_PREV_NODUP = 14
+MDB_SET = 15
+MDB_SET_KEY = 16
+MDB_SET_RANGE = 17
+
 class Error(Exception):
 	"""Extended Exception class for LMDB exceptions which decodes bytes objects
 	by default."""
@@ -266,6 +285,33 @@ class LibLMDB(object):
 		lib.mdb_del.argtypes = [ctypes.c_void_p, ctypes.c_uint,
 			ctypes.POINTER(Value), ctypes.POINTER(Value)]
 
+		# mdb_cursor_open
+		lib.mdb_cursor_open.restype = ctypes.c_int
+		lib.mdb_cursor_open.argtypes = [ctypes.c_void_p, ctypes.c_uint,
+			ctypes.POINTER(ctypes.c_void_p)]
+
+		# mdb_cursor_close
+		lib.mdb_cursor_close.restype = None
+		lib.mdb_cursor_close.argtypes = [ctypes.c_void_p]
+
+		# mdb_cursor_renew
+		lib.mdb_cursor_renew.restype = ctypes.c_int
+		lib.mdb_cursor_renew.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
+
+		# mdb_cursor_get
+		lib.mdb_cursor_get.restype = ctypes.c_int
+		lib.mdb_cursor_get.argtypes = [ctypes.c_void_p, ctypes.POINTER(Value),
+			ctypes.POINTER(Value), ctypes.c_int]
+
+		# mdb_cursor_put
+		lib.mdb_cursor_put.restype = ctypes.c_int
+		lib.mdb_cursor_put.argtypes = [ctypes.c_void_p, ctypes.POINTER(Value),
+			ctypes.POINTER(Value), ctypes.c_uint]
+
+		# mdb_cursor_del
+		lib.mdb_cursor_del.restype = ctypes.c_int
+		lib.mdb_cursor_del.argtypes = [ctypes.c_void_p, ctypes.c_uint]
+
 	def version(self):
 		"""Obtain version of MDB binding and return 4-tuple of major, minor, patch
 		level and version string."""
@@ -477,6 +523,37 @@ class LibLMDB(object):
 		if err != 0:
 			raise Error(err, self.strerror(err))
 	
+	def cursor_open(self, txn, dbi):
+		res = ctypes.c_void_p()
+		err = self._lib.mdb_cursor_open(txn, dbi, ctypes.pointer(res))
+		if err != 0:
+			raise Error(err, self.strerror(err))
+		return res
+
+	def cursor_close(self, cursor):
+		self._lib.mdb_cursor_close(cursor)
+
+	def cursor_renew(self, txn, cursor):
+		err = self._lib.mdb_cursor_renew(txn, cursor)
+		if err != 0:
+			raise Error(err, self.strerror(err))
+	
+	def cursor_get(self, cursor, key, data, op):
+		err = self._lib.mdb_cursor_get(cursor, key, data, op)
+		if err != 0:
+			raise Error(err, self.strerror(err))
+		return key, data
+
+	def cursor_put(self, cursor, key, data, flags):
+		err = self._lib.mdb_cursor_put(cursor, key, data, flags)
+		if err != 0:
+			raise Error(err, self.strerror(err))
+	
+	def cursor_del(self, cursor, flags):
+		err = self._lib.mdb_cursor_del(cursor, flags)
+		if err != 0:
+			raise Error(err, self.strerror(err))
+	
 class Environment(object):
 	"""Instances of this class represents an environment handle and provide higher
 	level access to it's properties."""
@@ -659,6 +736,9 @@ class Transaction(object):
 		"""Return database object for the associated environment."""
 		return Database(self, name, flags)
 
+	def cursor(self):
+		return Cursor(self)
+
 	def __setitem__(self, key, value):
 		self.primary_database[key] = value
 
@@ -702,6 +782,9 @@ class Database(object):
 
 	def __del__(self):
 		self.close()
+
+	def cursor(self):
+		return Cursor(self)
 
 	def stat(self):
 		"""Return Stat for database handle."""
@@ -777,6 +860,80 @@ class Database(object):
 	@property
 	def env(self):
 		return self.transaction.env
+
+class Cursor(object):
+	_handle = None
+
+	def __init__(self, txn_or_db, lib=None):
+		if isinstance(txn_or_db, Database):
+			db = txn_or_db
+			txn = db.transaction
+		elif isinstance(txn_or_db, Transaction):
+			txn = txn_or_db
+			db = txn.primary_database
+		else:
+			raise TypeError("Expected txn_or_db to be Transaction or Database, got {}".format(type(txn_or_db)))
+		if lib is None:
+			lib = db._lib
+		self._lib = lib
+		self.open(txn, db)
+	
+	def open(self, txn, db):
+		if self._handle is not None:
+			self.close()
+		self._handle = self._lib.cursor_open(txn._handle, db._handle)
+
+	def close(self):
+		if self._handle is not None:
+			self._lib.cursor_close(self._handle)
+			self._handle = None
+	
+	def renew(self, txn):
+		self._lib.cursor_renew(txn._handle, self._handle)
+
+	def get(self, op, key=None, data=None):
+		if not isinstance(key, Value):
+			key = Value.from_object(key)
+		if not isinstance(data, Value):
+			data = Value.from_object(data)
+		key, value = self._lib.cursor_get(self._handle, key, data, op)
+		return key.to_bytes(), data.to_bytes()
+
+	def put(self, key, data, flags=0):
+		if not isinstance(key, Value):
+			key = Value.from_object(key)
+		if not isinstance(data, Value):
+			data = Value.from_object(data)
+		self._lib.cursor_put(self._handle, key, data, flags)
+
+	def delete(self, flags=0):
+		self._lib.cursor_del(self._handle, flags)
+	
+	def next(self):
+		return self.get(MDB_NEXT)
+
+	def prev(self):
+		return self.get(MDB_PREV)
+
+	def first(self):
+		return self.get(MDB_FIRST)
+
+	def last(self):
+		return self.get(MDB_LAST)
+
+	def __del__(self):
+		self.close()
+
+	def __iter__(self):
+		return self
+
+	def __next__(self):
+		try:
+			return self.get(MDB_NEXT)
+		except Error as e:
+			if e.code == MDB_NOTFOUND:
+				raise StopIteration()
+			raise
 
 try:
   lib = LibLMDB(os.environ.get("LMDB_SO_PATH"))
