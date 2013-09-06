@@ -33,9 +33,9 @@ class Application(bottle.Bottle):
 		bottle.Bottle.__init__(self, *args, **kwargs)
 
 		self.route("/", "GET", self.handle_index)
-		self.route("/_simple/<key>", "GET", self.handle_get)
-		self.route("/_simple/<key>", "PUT", self.handle_set)
-		self.route("/_simple/<key>", "DELETE", self.handle_delete)
+		self.route("/_simple/<key:path>", "GET", self.handle_get)
+		self.route("/_simple/<key:path>", "PUT", self.handle_set)
+		self.route("/_simple/<key:path>", "DELETE", self.handle_delete)
 		self.route("/_trans", "POST", self.handle_transaction)
 		if catch_keys is True:
 			self.route("/<key>", "GET", self.handle_get)
