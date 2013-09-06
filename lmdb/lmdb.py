@@ -2,6 +2,7 @@
 # coding: utf-8
 
 import pickle
+import os
 import ctypes
 import ctypes.util
 
@@ -771,4 +772,9 @@ class Database(object):
 	@property
 	def env(self):
 		return self.transaction.env
+
+try:
+  lib = LibLMDB(os.environ.get("LMDB_SO_PATH"))
+except lmdb.Error:
+  pass
 
