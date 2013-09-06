@@ -3,6 +3,7 @@
 import json
 import random
 import os
+import os.path
 
 import bottle
 
@@ -188,7 +189,10 @@ try:
 		_lib = lmdb.LibLMDB()
 	_env = lmdb.Environment(_lib)
 	if "LMDB_WEB_DBPATH" in os.environ:
-		_env.open(os.environ["LMDB_WEB_DBPATH"])
+		if os.path.isfile(os.environ["LMDB_WEB_DBPATH"]):
+			_env.open(os.environ["LMDB_WEB_DBPATH"], lmdb.MDB_NOSUBDIR)
+		else:
+			_env.open(os.environ["LMDB_WEB_DBPATH"])
 	else:
 		_env.open("./")
 	application = Application(environment=_env)
