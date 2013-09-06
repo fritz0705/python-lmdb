@@ -108,7 +108,8 @@ class Application(bottle.Bottle):
 
 	def handle_transaction(self):
 		bottle.response.content_type = "application/json"
-		txn_info = json.load(bottle.request.body)
+		txn_info = bottle.request.body.read().decode()
+		txn_info = json.loads(txn_info)
 
 		flags = 0 if txn_info.get("write", False) else lmdb.MDB_RDONLY
 		steps = txn_info.get("steps", [])
