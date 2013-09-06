@@ -13,16 +13,21 @@ class Application(bottle.Bottle):
 	NAMES = {"Apple", "Pear", "Cucumber", "Pineapple"}
 	
 	def __init__(self, *args, **kwargs):
-		if "environment" not in kwargs:
-			self.environment = lmdb.Environment(lmdb.LibLMDB())
-			self.environment.open(kwargs.get("path", "./"))
-		else:
-			self.environment = kwargs.pop("environment")
+		environment = kwargs.pop("environment", None)
+		name = kwargs.pop("name", None)
 
-		if "name" not in kwargs:
-			self.name = "!"
+		if environment is None:
+			self.environment = lmdb.Environment(lmdb.LibLMDB())
+			self.environment.open(kwargs.pop("path", "./"))
 		else:
-			self.name = kwargs.pop("name")
+			self.environment = environment
+
+		if name is None:
+			self.name = self.NAMES.pop()
+		else:
+			self.name = name
+
+		catch_keys = kwargs.pop("catch_keys", False)
 
 		bottle.Bottle.__init__(self, *args, **kwargs)
 
@@ -31,6 +36,10 @@ class Application(bottle.Bottle):
 		self.route("/_simple/<key>", "PUT", self.handle_set)
 		self.route("/_simple/<key>", "DELETE", self.handle_delete)
 		self.route("/_trans", "POST", self.handle_transaction)
+		if catch_keys is True:
+			self.route("/<key>", "GET", self.handle_get)
+			self.route("/<key>", "POST", self.handle_set)
+			self.route("/<key>", "DELETE", self.handle_delete)
 
 	def handle_index(self):
 		bottle.response.content_type = "application/json"
@@ -71,8 +80,11 @@ class Application(bottle.Bottle):
 		content_type = bottle.request.query.get("type", "binary")
 		bottle.response.content_type = {
 			"binary": "application/octet-stream",
-			"plain": "text/plain"
-		}[content_type]
+			"plain": "text/plain",
+			"xml": "application/xml",
+			"xhtml": "application/xhtml+xml",
+			"html": "text/html"
+		}.get(content_type, content_type)
 		return data
 
 	def handle_set(self, key):
