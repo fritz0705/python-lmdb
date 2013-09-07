@@ -640,8 +640,9 @@ class Environment(object):
 		"""Get maximum key size for this environment."""
 		return self._lib.env_get_maxkeysize(self._handle)
 
-	def transaction(self, flags=0):
-		"""Create new transaction for this environment."""
+	def transaction(self, flags=0, write=True):
+		if write is False:
+			flags |= MDB_RDONLY
 		return Transaction(self, flags=flags)
 
 	begin = transaction
