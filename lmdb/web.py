@@ -37,6 +37,7 @@ class Application(bottle.Bottle):
 		self.route("/_simple/<key:path>", "PUT", self.handle_set)
 		self.route("/_simple/<key:path>", "DELETE", self.handle_delete)
 		self.route("/_trans", "POST", self.handle_transaction)
+		self.route("/_dump", "GET", self.handle_dump)
 		if catch_keys is True:
 			self.route("/<key>", "GET", self.handle_get)
 			self.route("/<key>", "POST", self.handle_set)
@@ -164,6 +165,17 @@ class Application(bottle.Bottle):
 			"message": "success",
 			"success": "transaction",
 			"report": report
+		})
+
+	def handle_dump(self):
+		bottle.response.content_type = "application/json"
+		steps = []
+		with self.environment.begin() as txn:
+			for key, value in txn.cursor():
+				steps.append({"action": "set", "key": key.decode(), "value": value.decode()})
+		return json.dumps({
+			"write": True,
+			"steps": steps
 		})
 
 	def _key_error_to_json(self, key):

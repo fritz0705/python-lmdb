@@ -34,6 +34,7 @@ It supports simple REST endpoints:
 * `PUT /_simple/<key>` Set an item with request body
 * `DELETE /_simple/<key>` Delete an item
 * `POST /_trans` Upload transaction and execute it
+* `GET /_dump` Return transaction which inserts data
 
 Transactions are uploaded as JSON with the following form:
 
