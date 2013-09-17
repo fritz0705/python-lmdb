@@ -7,7 +7,7 @@ with open("README.md") as f:
 
 setuptools.setup(
 	name="python-lmdb",
-	version="1.0dev",
+	version="1.0.0b1",
 	packages=[
 		"lmdb"
 	],
