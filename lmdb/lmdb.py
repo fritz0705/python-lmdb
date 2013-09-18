@@ -649,6 +649,29 @@ class Environment(object):
 
 	begin = transaction
 
+	def __getitem__(self, key):
+		with self.transaction(write=False) as txn:
+			return txn[key]
+
+	def __setitem__(self, key, value):
+		with self.transaction(write=True) as txn:
+			txn[key] = value
+
+	def __delitem__(self, key):
+		with self.transaction(write=True) as txn:
+			del txn[key]
+	
+	def __contains__(self, key):
+		try:
+			self[key]
+		except KeyError:
+			return False
+		else:
+			return True
+	
+	def __len__(self):
+		return self.stat.ms_entries
+
 	@property
 	def flags(self):
 		return self.get_flags(self._handle)
@@ -801,6 +824,7 @@ class Database(object):
 	def cursor(self):
 		return Cursor(self)
 
+	@property
 	def stat(self):
 		"""Return Stat for database handle."""
 		return self._lib.stat(self.transaction._handle, self._handle)
@@ -847,6 +871,9 @@ class Database(object):
 		if value is not None and not isinstance(value, Value):
 			value = Value.from_object(value)
 		self._lib.delete(self.transaction._handle, self._handle, key, value)
+
+	def __len__(self):
+		return self.stat.ms_entries
 
 	def __getitem__(self, key):
 		try:
@@ -900,6 +927,7 @@ class Cursor(object):
 	def open(self, txn, db):
 		if self._handle is not None:
 			self.close()
+		self.db = db
 		self._handle = self._lib.cursor_open(txn._handle, db._handle)
 
 	def close(self):
@@ -947,6 +975,9 @@ class Cursor(object):
 
 	def __iter__(self):
 		return self
+	
+	def __len__(self):
+		return len(self.db)
 
 	def __next__(self):
 		try:
