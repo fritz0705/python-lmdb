@@ -671,6 +671,14 @@ class Environment(object):
 	def maxkeysize(self):
 		return self.get_maxkeysize()
 
+	@property
+	def mapsize(self):
+		return self.info.me_mapsize
+
+	@mapsize.setter
+	def mapsize(self, value):
+		self.set_mapsize(value)
+
 class Transaction(object):
 	"""Instances of Transaction represents an open transaction."""
 
