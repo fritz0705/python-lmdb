@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
 
-import setuptools
+try:
+	with open("README.md") as fh:
+		long_description = fh.read()
+except FileNotFoundError:
+	long_description = ""
+	pass
 
-with open("README.md") as f:
-	long_description = f.read()
+import setuptools
 
 setuptools.setup(
 	name="python-lmdb",
