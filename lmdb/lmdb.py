@@ -805,7 +805,9 @@ class Database(object):
 
 	def close(self):
 		"""Close this database handle."""
-		self._lib.dbi_close(self.transaction._handle, self._handle)
+		if self._handle is not None:
+			self._lib.dbi_close(self.transaction._handle, self._handle)
+			self._handle = None
 
 	def empty(self):
 		"""Empty this database."""
