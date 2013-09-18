@@ -584,9 +584,11 @@ class Environment(object):
 
 	def close(self):
 		"""Close environment handle. You have to recreate an environment handle."""
-		if self._handle is None:
-			self._lib.env_close(self._handle)
-			self._handle = None
+		if self._handle is not None:
+			try:
+				self._lib.env_close(self._handle)
+			finally:
+				self._handle = None
 
 	def copy(self, path):
 		self._lib.env_copy(self._handle, path)
@@ -721,16 +723,20 @@ class Transaction(object):
 	def commit(self):
 		"""Commit this transaction. After committing it you have to rebegin it."""
 		if self._handle is not None:
-			self._close_databases()
-			self._lib.txn_commit(self._handle)
-			self._handle = None
+			try:
+				self._close_databases()
+				self._lib.txn_commit(self._handle)
+			finally:
+				self._handle = None
 	
 	def abort(self):
 		"""Abort this transaction. After aborting it you have to rebegin it."""
 		if self._handle is not None:
-			self._close_databases()
-			self._lib.txn_abort(self._handle)
-			self._handle = None
+			try:
+				self._close_databases()
+				self._lib.txn_abort(self._handle)
+			finally:
+				self._handle = None
 
 	def reset(self):
 		"""Reset this transaction."""
@@ -806,8 +812,10 @@ class Database(object):
 	def close(self):
 		"""Close this database handle."""
 		if self._handle is not None:
-			self._lib.dbi_close(self.transaction._handle, self._handle)
-			self._handle = None
+			try:
+				self._lib.dbi_close(self.transaction._handle, self._handle)
+			finally:
+				self._handle = None
 
 	def empty(self):
 		"""Empty this database."""
@@ -896,8 +904,10 @@ class Cursor(object):
 
 	def close(self):
 		if self._handle is not None:
-			self._lib.cursor_close(self._handle)
-			self._handle = None
+			try:
+				self._lib.cursor_close(self._handle)
+			finally:
+				self._handle = None
 	
 	def renew(self, txn):
 		self._lib.cursor_renew(txn._handle, self._handle)
