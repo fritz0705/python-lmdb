@@ -672,6 +672,9 @@ class Environment(object):
 	def __len__(self):
 		return self.stat.ms_entries
 
+	def __repr__(self):
+		return "<Environment [{0}] {1:x}>".format("active" if self._handle is not None else "inactive", id(self))
+
 	@property
 	def flags(self):
 		return self.get_flags(self._handle)
@@ -789,6 +792,9 @@ class Transaction(object):
 	def __contains__(self, key):
 		return key in self.primary_database
 
+	def __repr__(self):
+		return "<Transaction [{0}] {1:x}>".format("active" if self._handle is not None else "inactive", id(self))
+
 	def _close_databases(self):
 		if self._primary_database is not None:
 			self.primary_database.close()
@@ -903,6 +909,9 @@ class Database(object):
 			else:
 				raise
 
+	def __repr__(self):
+		return "<Database [{0}] {1:x}>".format("active" if self._handle is not None else "inactive", id(self))
+
 	@property
 	def env(self):
 		return self.transaction.env
@@ -986,6 +995,9 @@ class Cursor(object):
 			if e.code == MDB_NOTFOUND:
 				raise StopIteration()
 			raise
+
+	def __repr__(self):
+		return "<Cursor [{0}] {1:x}>".format("active" if self._handle is not None else "inactive", id(self))
 
 try:
   lib = LibLMDB(os.environ.get("LMDB_SO_PATH"))
