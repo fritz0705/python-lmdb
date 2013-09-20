@@ -780,6 +780,9 @@ class Transaction(object):
 	def cursor(self):
 		return Cursor(self)
 
+	def update(self, iterable):
+		self.primary_database.update(iterable)
+
 	def __setitem__(self, key, value):
 		self.primary_database[key] = value
 
@@ -791,6 +794,9 @@ class Transaction(object):
 
 	def __contains__(self, key):
 		return key in self.primary_database
+
+	def __len__(self):
+		return len(self.primary_database)
 
 	def __repr__(self):
 		return "<Transaction [{0}] {1:x}>".format("active" if self._handle is not None else "inactive", id(self))
@@ -877,6 +883,12 @@ class Database(object):
 		if value is not None and not isinstance(value, Value):
 			value = Value.from_object(value)
 		self._lib.delete(self.transaction._handle, self._handle, key, value)
+	
+	def update(self, iterable):
+		if isinstance(iterable, dict):
+			iterable = iterable.items()
+		for key, value in iterable:
+			self[key] = value
 
 	def __len__(self):
 		return self.stat.ms_entries
