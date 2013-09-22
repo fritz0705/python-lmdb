@@ -72,12 +72,23 @@ MDB_SET_KEY = 16
 MDB_SET_RANGE = 17
 
 class Error(Exception):
+	"""Base exception class for all python-lmdb related exceptions."""
+
+class InvalidHandleError(Error):
+	def __init__(self, op):
+		Error.__init__(self, op)
+	
+	@property
+	def operation(self):
+		return self.args[0]
+
+class APIError(Error):
 	"""Extended Exception class for LMDB exceptions which decodes bytes objects
 	by default."""
 	def __init__(self, code, msg):
 		if isinstance(msg, bytes):
 			msg = msg.decode()
-		Exception.__init__(self, code, msg)
+		Error.__init__(self, code, msg)
 
 	@property
 	def message(self):
@@ -330,229 +341,299 @@ class LibLMDB(object):
 		val = ctypes.c_void_p()
 		err = self._lib.mdb_env_create(ctypes.pointer(val))
 		if err != 0:
-			raise Error(err, self.strerror(err))
+			raise APIError(err, self.strerror(err))
 		return val
 
 	def env_open(self, env, path, flags, mode):
 		"""Associate environment handle with path."""
+		if env is None:
+			raise InvalidHandleError("env_open")
 		if isinstance(path, str):
 			path = path.encode()
 		err = self._lib.mdb_env_open(env, path, flags, mode)
 		if err != 0:
-			raise Error(err, self.strerror(err))
+			raise APIError(err, self.strerror(err))
 	
 	def env_copy(self, env, path):
 		"""Copy environment to provided path."""
+		if env is None:
+			raise InvalidHandleError("env_copy")
 		err = self._lib.mdb_env_copy(env, path)
 		if err != 0:
-			raise Error(err, self.strerror(err))
+			raise APIError(err, self.strerror(err))
 
 	def env_copyfd(self, env, fd):
 		"""Copy environment to provided file descriptor."""
+		if env is None:
+			raise InvalidHandleError("env_copyfd")
 		err = self._lib.mdb_env_copyfd(env, fd)
 		if err != 0:
-			raise Error(err, self.strerror(err))
+			raise APIError(err, self.strerror(err))
 	
 	def env_stat(self, env):
 		"""Return Stat object from environment handle."""
+		if env is None:
+			raise InvalidHandleError("env_stat")
 		res = Stat()
 		err = self._lib.mdb_env_stat(env, ctypes.pointer(res))
 		if err != 0:
-			raise Error(err, self.strerror(err))
+			raise APIError(err, self.strerror(err))
 		return res
 	
 	def env_info(self, env):
 		"""Return EnvInfo object from environment handle."""
+		if env is None:
+			raise InvalidHandleError("env_info")
 		res = EnvInfo()
 		err = self._lib.mdb_env_info(env, ctypes.pointer(res))
 		if err != 0:
-			raise Error(err, self.strerror(err))
+			raise APIError(err, self.strerror(err))
 		return res
 	
 	def env_sync(self, env, force):
 		"""Sync environment."""
+		if env is None:
+			raise InvalidHandleError("env_sync")
 		err = self._lib.mdb_env_sync(env, force)
 		if err != 0:
-			raise Error(err, self.strerror(err))
+			raise APIError(err, self.strerror(err))
 
 	def env_close(self, env):
 		"""Destroy environment handle."""
+		if env is None:
+			raise InvalidHandleError("env_close")
 		self._lib.mdb_env_close(env)
 
 	def env_set_flags(self, env, flags, onoff):
 		"""Set flags for environment handle."""
+		if env is None:
+			raise InvalidHandleError("env_set_flags")
 		err = self._lib.mdb_env_set_flags(env, flags, onoff)
 		if err != 0:
-			raise Error(err, self.strerror(err))
+			raise APIError(err, self.strerror(err))
 	
 	def env_get_flags(self, env):
 		"""Get flags for environment handle."""
+		if env is None:
+			raise InvalidHandleError("env_get_flags")
 		res = ctypes.c_uint()
 		err = self._lib.mdb_env_get_flags(env, ctypes.pointer(res))
 		if err != 0:
-			raise Error(err, self.strerror(err))
+			raise APIError(err, self.strerror(err))
 		return res.value
 
 	def env_get_path(self, env):
 		"""Return associated path from environment handle."""
+		if env is None:
+			raise InvalidHandleError("env_get_path")
 		res = ctypes.c_char_p()
 		err = self._lib.mdb_env_get_path(env, ctypes.pointer(res))
 		if err != 0:
-			raise Error(err, self.strerror(err))
+			raise APIError(err, self.strerror(err))
 		return res.value.decode()
 
 	def env_set_mapsize(self, env, size):
 		"""Set mapping size for environment handle."""
+		if env is None:
+			raise InvalidHandleError("env_set_mapsize")
 		err = self._lib.mdb_env_set_mapsize(env, size)
 		if err != 0:
-			raise Error(err, self.strerror(err))
+			raise APIError(err, self.strerror(err))
 
 	def env_set_maxreaders(self, env, readers):
 		"""Set maximum readers for environment handle."""
+		if env is None:
+			raise InvalidHandleError("env_set_maxreaders")
 		err = self._lib.mdb_env_set_maxreaders(env, readers)
 		if err != 0:
-			raise Error(err, self.strerror(err))
+			raise APIError(err, self.strerror(err))
 	
 	def env_get_maxreaders(self, env):
 		"""Get maximum readers for environment handle."""
+		if env is None:
+			raise InvalidHandleError("env_get_maxreaders")
 		res = ctypes.c_uint()
 		err = self._lib.mdb_env_get_maxreaders(env, ctypes.pointer(res))
 		if err != 0:
-			raise Error(err, self.strerror(err))
+			raise APIError(err, self.strerror(err))
 		return res.value
 
 	def env_set_maxdbs(self, env, dbs):
 		"""Set maximum database count for environment handle."""
+		if env is None:
+			raise InvalidHandleError("env_set_maxdbs")
 		err = self._lib.mdb_env_set_maxdbs(env, dbs)
 		if err != 0:
-			raise Error(err, self.strerror(err))
+			raise APIError(err, self.strerror(err))
 
 	def env_get_maxkeysize(self, env):
 		"""Get maximum key size for environment handle."""
+		if env is None:
+			raise InvalidHandleError("env_get_maxkeysize")
 		res = self._lib.mdb_env_get_maxkeysize(env)
 		return res
 
 	def txn_begin(self, env, parent, flags):
 		"""Create transaction handle from environment, optional parent transaction,
 		and flags."""
+		if env is None:
+			raise InvalidHandleError("txn_begin")
 		res = ctypes.c_void_p()
 		err = self._lib.mdb_txn_begin(env, parent, flags, ctypes.pointer(res))
 		if err != 0:
-			raise Error(err, self.strerror(err))
+			raise APIError(err, self.strerror(err))
 		return res
 
 	def txn_env(self, txn):
 		"""Return environment handle for transaction handle."""
+		if txn is None:
+			raise InvalidHandleError("txn_env")
 		res = self._lib.mdb_txn_env(txn)
 		return res
 
 	def txn_commit(self, txn):
 		"""Commit and invalidate transaction handle."""
+		if txn is None:
+			raise InvalidHandleError("txn_commit")
 		err = self._lib.mdb_txn_commit(txn)
 		if err != 0:
-			raise Error(err, self.strerror(err))
+			raise APIError(err, self.strerror(err))
 	
 	def txn_abort(self, txn):
 		"""Abort and invalidate transaction handle."""
+		if txn is None:
+			raise InvalidHandleError("txn_abort")
 		self._lib.mdb_txn_abort(txn)
 	
 	def txn_reset(self, txn):
 		"""Reset transaction handle."""
+		if txn is None:
+			raise InvalidHandleError("txn_reset")
 		self._lib.mdb_txn_reset(txn)
 	
 	def txn_renew(self, txn):
 		"""Prepare transaction handle for reuse after reset."""
+		if txn is None:
+			raise InvalidHandleError("txn_renew")
 		err = self._lib.mdb_txn_renew(txn)
 		if err != 0:
-			raise Error(err, self.strerror(err))
+			raise APIError(err, self.strerror(err))
 	
 	def dbi_open(self, txn, name, flags):
 		"""Open database handle by transaction handle, optional name and flags."""
+		if txn is None:
+			raise InvalidHandleError("dbi_open")
 		if isinstance(name, str):
 			name = name.encode()
 		res = ctypes.c_uint()
 		err = self._lib.mdb_dbi_open(txn, name, flags, ctypes.pointer(res))
 		if err != 0:
-			raise Error(err, self.strerror(err))
+			raise APIError(err, self.strerror(err))
 		return res
 
 	def stat(self, txn, dbi):
 		"""Return Stat object for database handle."""
+		if txn is None or dbi is None:
+			raise InvalidHandleError("stat")
 		res = Stat()
 		err = self._lib.mdb_stat(txn, dbi, ctypes.pointer(res))
 		if err != 0:
-			raise Error(err, self.strerror(err))
+			raise APIError(err, self.strerror(err))
 		return res
 
 	def dbi_flags(self, txn, dbi):
 		"""Return flags for database handle."""
+		if txn is None or dbi is None:
+			raise InvalidHandleError("dbi_flags")
 		res = ctypes.c_uint()
 		err = self._lib.mdb_dbi_flags(txn, dbi, ctypes.pointer(res))
 		if err != 0:
-			raise Error(err, self.strerror(err))
+			raise APIError(err, self.strerror(err))
 		return res
 
 	def dbi_close(self, txn, dbi):
 		"""Close database handle."""
+		if txn is None or dbi is None:
+			raise InvalidHandleError("dbi_close")
 		self._lib.mdb_dbi_close(txn, dbi)
 
 	def drop(self, txn, dbi, delete=False):
 		"""Empty database if delete is False or delete database from enviroment and
 		close transaction handle if delete is True."""
+		if txn is None or dbi is None:
+			raise InvalidHandleError("drop")
 		err = self._lib.mdb_drop(txn, dbi, delete)
 		if err != 0:
-			raise Error(err, self.strerror(err))
+			raise APIError(err, self.strerror(err))
 
 	def get(self, txn, dbi, key):
 		"""Get items from database handle."""
+		if txn is None or dbi is None:
+			raise InvalidHandleError("get")
 		res = Value()
 		err = self._lib.mdb_get(txn, dbi, ctypes.pointer(key), ctypes.pointer(res))
 		if err != 0:
-			raise Error(err, self.strerror(err))
+			raise APIError(err, self.strerror(err))
 		return res
 
 	def put(self, txn, dbi, key, value, flags):
 		"""Put item into database."""
+		if txn is None or dbi is None:
+			raise InvalidHandleError("put")
 		err = self._lib.mdb_put(txn, dbi, ctypes.pointer(key), ctypes.pointer(value), flags)
 		if err != 0:
-			raise Error(err, self.strerror(err))
+			raise APIError(err, self.strerror(err))
 	
 	def delete(self, txn, dbi, key, value):
 		"""Delete item from database."""
+		if txn is None or dbi is None:
+			raise InvalidHandleError("delete")
 		err = self._lib.mdb_del(txn, dbi, ctypes.pointer(key), None if value is None else ctypes.pointer(value))
 		if err != 0:
-			raise Error(err, self.strerror(err))
+			raise APIError(err, self.strerror(err))
 	
 	def cursor_open(self, txn, dbi):
+		if txn is None or dbi is None:
+			raise InvalidHandleError("cursor_open")
 		res = ctypes.c_void_p()
 		err = self._lib.mdb_cursor_open(txn, dbi, ctypes.pointer(res))
 		if err != 0:
-			raise Error(err, self.strerror(err))
+			raise APIError(err, self.strerror(err))
 		return res
 
 	def cursor_close(self, cursor):
+		if cursor is None:
+			raise InvalidHandleError("cursor_close")
 		self._lib.mdb_cursor_close(cursor)
 
 	def cursor_renew(self, txn, cursor):
+		if txn is None or cursor is None:
+			raise InvalidHandleError("cursor_renew")
 		err = self._lib.mdb_cursor_renew(txn, cursor)
 		if err != 0:
-			raise Error(err, self.strerror(err))
+			raise APIError(err, self.strerror(err))
 	
 	def cursor_get(self, cursor, key, data, op):
+		if cursor is None:
+			raise InvalidHandleError("cursor_get")
 		err = self._lib.mdb_cursor_get(cursor, key, data, op)
 		if err != 0:
-			raise Error(err, self.strerror(err))
+			raise APIError(err, self.strerror(err))
 		return key, data
 
 	def cursor_put(self, cursor, key, data, flags):
+		if cursor is None:
+			raise InvalidHandleError("cursor_put")
 		err = self._lib.mdb_cursor_put(cursor, key, data, flags)
 		if err != 0:
-			raise Error(err, self.strerror(err))
+			raise APIError(err, self.strerror(err))
 	
 	def cursor_del(self, cursor, flags):
+		if cursor is None:
+			raise InvalidHandleError("cursor_del")
 		err = self._lib.mdb_cursor_del(cursor, flags)
 		if err != 0:
-			raise Error(err, self.strerror(err))
+			raise APIError(err, self.strerror(err))
 	
 class Environment(object):
 	"""Instances of this class represents an environment handle and provide higher
@@ -584,11 +665,12 @@ class Environment(object):
 
 	def close(self):
 		"""Close environment handle. You have to recreate an environment handle."""
-		if self._handle is not None:
-			try:
-				self._lib.env_close(self._handle)
-			finally:
-				self._handle = None
+		try:
+			self._lib.env_close(self._handle)
+		except InvalidHandleError:
+			pass
+		finally:
+			self._handle = None
 
 	def copy(self, path):
 		self._lib.env_copy(self._handle, path)
@@ -642,10 +724,10 @@ class Environment(object):
 		"""Get maximum key size for this environment."""
 		return self._lib.env_get_maxkeysize(self._handle)
 
-	def transaction(self, flags=0, write=True):
+	def transaction(self, flags=0, write=True, db=None):
 		if write is False:
 			flags |= MDB_RDONLY
-		return Transaction(self, flags=flags)
+		return Transaction(self, flags=flags, db=db)
 
 	begin = transaction
 
@@ -664,7 +746,7 @@ class Environment(object):
 	def __contains__(self, key):
 		try:
 			self[key]
-		except KeyError:
+		except KeyAPIError:
 			return False
 		else:
 			return True
@@ -694,6 +776,12 @@ class Environment(object):
 	@maxreaders.setter
 	def maxreaders(self, value):
 		self.set_maxreaders(value)
+
+	maxdbs = property()
+
+	@maxdbs.setter
+	def maxdbs(self, value):
+		self.set_maxdbs(value)
 
 	@property
 	def maxkeysize(self):
@@ -725,8 +813,10 @@ class Transaction(object):
 		self.abort()
 
 	def __enter__(self):
-		if self._handle is None:
+		try:
 			self.begin()
+		except InvalidHandleError:
+			pass
 		return self
 
 	def __exit__(self, exc_type, exc_value, traceback):
@@ -737,10 +827,12 @@ class Transaction(object):
 	
 	def begin(self, parent=None, flags=0):
 		"""Begin new transaction by allocating a transaction handle."""
-		if self._handle is None:
+		try:
 			self._handle = self._lib.txn_begin(self.env._handle,
 				parent._handle if parent is not None else None,
 				flags)
+		except InvalidHandleError:
+			pass
 
 	def transaction(self, flags=0):
 		"""Return new sub-transaction from this transaction."""
@@ -748,21 +840,23 @@ class Transaction(object):
 
 	def commit(self):
 		"""Commit this transaction. After committing it you have to rebegin it."""
-		if self._handle is not None:
-			try:
-				self._close_databases()
-				self._lib.txn_commit(self._handle)
-			finally:
-				self._handle = None
+		try:
+			self._close_databases()
+			self._lib.txn_commit(self._handle)
+		except InvalidHandleError:
+			pass
+		finally:
+			self._handle = None
 	
 	def abort(self):
 		"""Abort this transaction. After aborting it you have to rebegin it."""
-		if self._handle is not None:
-			try:
-				self._close_databases()
-				self._lib.txn_abort(self._handle)
-			finally:
-				self._handle = None
+		try:
+			self._close_databases()
+			self._lib.txn_abort(self._handle)
+		except InvalidHandleError:
+			pass
+		finally:
+			self._handle = None
 
 	def reset(self):
 		"""Reset this transaction."""
@@ -782,6 +876,15 @@ class Transaction(object):
 
 	def update(self, iterable):
 		self.primary_database.update(iterable)
+	
+	def keys(self):
+		return self.primary_database.keys()
+
+	def values(self):
+		return self.primary_database.values()
+
+	def items(self):
+		return self.primary_database.items()
 
 	def __setitem__(self, key, value):
 		self.primary_database[key] = value
@@ -797,6 +900,9 @@ class Transaction(object):
 
 	def __len__(self):
 		return len(self.primary_database)
+	
+	def __iter__(self):
+		return iter(self.primary_database)
 
 	def __repr__(self):
 		return "<Transaction [{0}] {1:x}>".format("active" if self._handle is not None else "inactive", id(self))
@@ -816,6 +922,8 @@ class Transaction(object):
 class Database(object):
 	"""Instances of Database represents database handles which are
 	associated with a transaction and an environment."""
+
+	_handle = None
 
 	def __init__(self, transaction, name, flags=0, lib=None):
 		if lib is None:
@@ -847,11 +955,12 @@ class Database(object):
 
 	def close(self):
 		"""Close this database handle."""
-		if self._handle is not None:
-			try:
-				self._lib.dbi_close(self.transaction._handle, self._handle)
-			finally:
-				self._handle = None
+		try:
+			self._lib.dbi_close(self.transaction._handle, self._handle)
+		except InvalidHandleError:
+			pass
+		finally:
+			self._handle = None
 
 	def empty(self):
 		"""Empty this database."""
@@ -890,15 +999,24 @@ class Database(object):
 		for key, value in iterable:
 			self[key] = value
 
+	def items(self):
+		return self.cursor()
+
+	def values(self):
+		return map(lambda x: x[1], self.items())
+	
+	def keys(self):
+		return map(lambda x: x[0], self.items())
+
 	def __len__(self):
 		return self.stat.ms_entries
 
 	def __getitem__(self, key):
 		try:
 			return self.get(key)
-		except Error as e:
+		except APIError as e:
 			if e.code == MDB_NOTFOUND:
-				raise KeyError(key)
+				raise KeyAPIError(key)
 			else:
 				raise
 
@@ -908,18 +1026,21 @@ class Database(object):
 	def __contains__(self, key):
 		try:
 			self[key]
-		except KeyError:
+		except KeyAPIError:
 			return False
 		return True
 
 	def __delitem__(self, key):
 		try:
 			self.delete(key)
-		except Error as e:
+		except APIError as e:
 			if e.code == MDB_NOTFOUND:
-				raise KeyError(key)
+				raise KeyAPIError(key)
 			else:
 				raise
+
+	def __iter__(self):
+		return self.cursor()
 
 	def __repr__(self):
 		return "<Database [{0}] {1:x}>".format("active" if self._handle is not None else "inactive", id(self))
@@ -939,24 +1060,27 @@ class Cursor(object):
 			txn = txn_or_db
 			db = txn.primary_database
 		else:
-			raise TypeError("Expected txn_or_db to be Transaction or Database, got {}".format(type(txn_or_db)))
+			raise TypeAPIError("Expected txn_or_db to be Transaction or Database, got {}".format(type(txn_or_db)))
 		if lib is None:
 			lib = db._lib
 		self._lib = lib
 		self.open(txn, db)
 	
 	def open(self, txn, db):
-		if self._handle is not None:
+		try:
 			self.close()
+		except InvalidHandleError:
+			pass
 		self.db = db
 		self._handle = self._lib.cursor_open(txn._handle, db._handle)
 
 	def close(self):
-		if self._handle is not None:
-			try:
-				self._lib.cursor_close(self._handle)
-			finally:
-				self._handle = None
+		try:
+			self._lib.cursor_close(self._handle)
+		except InvalidHandleError:
+			pass
+		finally:
+			self._handle = None
 	
 	def renew(self, txn):
 		self._lib.cursor_renew(txn._handle, self._handle)
@@ -1003,7 +1127,7 @@ class Cursor(object):
 	def __next__(self):
 		try:
 			return self.get(MDB_NEXT)
-		except Error as e:
+		except APIError as e:
 			if e.code == MDB_NOTFOUND:
 				raise StopIteration()
 			raise
@@ -1013,6 +1137,6 @@ class Cursor(object):
 
 try:
   lib = LibLMDB(os.environ.get("LMDB_SO_PATH"))
-except lmdb.Error:
+except lmdb.APIError:
   pass
 
