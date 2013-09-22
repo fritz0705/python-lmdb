@@ -827,12 +827,10 @@ class Transaction(object):
 	
 	def begin(self, parent=None, flags=0):
 		"""Begin new transaction by allocating a transaction handle."""
-		try:
+		if self._handle is None:
 			self._handle = self._lib.txn_begin(self.env._handle,
 				parent._handle if parent is not None else None,
 				flags)
-		except InvalidHandleError:
-			pass
 
 	def transaction(self, flags=0):
 		"""Return new sub-transaction from this transaction."""
