@@ -41,9 +41,16 @@ class Application(bottle.Bottle):
 		self.route("/<key:path>", "PUT", self.handle_set)
 		self.route("/<key:path>", "DELETE", self.handle_delete)
 
-	def _pick_return_type(self, default="application/octet-stream"):
+	def _pick_type(self, default="text/plain"):
 		if "Accept" in self.request.headers:
-			return werkzeug.http.parse_accept_header(self.request.headers["Accept"])[0][0]
+			accepted = werkzeug.http.parse_accept_header(self.request.headers["Accept"])
+			return accepted.best_match([
+				"application/json",
+				"text/html",
+				"application/xml+xhtml",
+				"text/plain",
+				"application/octet-stream"
+			], accepted.best)
 		return default
 
 	def handle_index(self):
@@ -72,26 +79,26 @@ class Application(bottle.Bottle):
 		})
 
 	def handle_get(self, key):
-		bottle.response.content_type = "application/json"
+		self.response.content_type = "application/json"
 		try:
 			with self.environment.begin(lmdb.MDB_RDONLY) as txn:
 				data = txn[key]
 		except lmdb.Error as err:
-			bottle.response.status = 500
+			self.response.status = 500
 			return json.dumps(self._lmdb_error_to_json(err, key))
 		except KeyError:
-			bottle.response.status = 404
+			self.response.status = 404
 			return json.dumps(self._key_error_to_json(key))
 		self.response.content_type = self._pick_type()
 		return data
 
 	def handle_set(self, key):
-		bottle.response.content_type = "application/json"
+		self.response.content_type = "application/json"
 		try:
 			with self.environment.begin() as txn:
-				txn[key] = bottle.request.body.read()
+				txn[key] = self.request.body.read()
 		except lmdb.Error as err:
-			bottle.response.status = 500
+			self.response.status = 500
 			return json.dumps(self._lmdb_error_to_json(err, key))
 		return json.dumps({
 			"message": "success",
@@ -100,15 +107,15 @@ class Application(bottle.Bottle):
 		})
 
 	def handle_delete(self, key):
-		bottle.response.content_type = "application/json"
+		self.response.content_type = "application/json"
 		try:
 			with self.environment.begin() as txn:
 				del txn[key]
 		except lmdb.Error as err:
-			bottle.response.status = 500
+			self.response.status = 500
 			return json.dumps(self._lmdb_error_to_json(err, key))
 		except KeyError:
-			bottle.response.status = 404
+			self.response.status = 404
 			return json.dumps(self._key_error_to_json(key))
 		return json.dumps({
 			"message": "success",
@@ -117,8 +124,8 @@ class Application(bottle.Bottle):
 		})
 
 	def handle_transaction(self):
-		bottle.response.content_type = "application/json"
-		txn_info = bottle.request.body.read().decode()
+		self.response.content_type = "application/json"
+		txn_info = self.request.body.read().decode()
 		txn_info = json.loads(txn_info)
 
 		flags = 0 if txn_info.get("write", False) else lmdb.MDB_RDONLY
