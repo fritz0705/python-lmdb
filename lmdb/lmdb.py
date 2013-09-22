@@ -746,7 +746,7 @@ class Environment(object):
 	def __contains__(self, key):
 		try:
 			self[key]
-		except KeyAPIError:
+		except KeyError:
 			return False
 		else:
 			return True
@@ -1016,7 +1016,7 @@ class Database(object):
 			return self.get(key)
 		except APIError as e:
 			if e.code == MDB_NOTFOUND:
-				raise KeyAPIError(key)
+				raise KeyError(key)
 			else:
 				raise
 
@@ -1026,7 +1026,7 @@ class Database(object):
 	def __contains__(self, key):
 		try:
 			self[key]
-		except KeyAPIError:
+		except KeyError:
 			return False
 		return True
 
@@ -1035,7 +1035,7 @@ class Database(object):
 			self.delete(key)
 		except APIError as e:
 			if e.code == MDB_NOTFOUND:
-				raise KeyAPIError(key)
+				raise KeyError(key)
 			else:
 				raise
 

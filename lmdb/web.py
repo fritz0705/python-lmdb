@@ -6,12 +6,16 @@ import os
 import os.path
 
 import bottle
+import werkzeug.http
 
 import lmdb.lmdb as lmdb
 
 class Application(bottle.Bottle):
 	VERSION = "0.1"
 	NAMES = {"Apple", "Pear", "Cucumber", "Pineapple"}
+
+	request = bottle.request
+	response = bottle.response
 	
 	def __init__(self, *args, **kwargs):
 		environment = kwargs.pop("environment", None)
@@ -28,23 +32,22 @@ class Application(bottle.Bottle):
 		else:
 			self.name = name
 
-		catch_keys = kwargs.pop("catch_keys", False)
-
 		bottle.Bottle.__init__(self, *args, **kwargs)
 
 		self.route("/", "GET", self.handle_index)
-		self.route("/_simple/<key:path>", "GET", self.handle_get)
-		self.route("/_simple/<key:path>", "PUT", self.handle_set)
-		self.route("/_simple/<key:path>", "DELETE", self.handle_delete)
-		self.route("/_trans", "POST", self.handle_transaction)
-		self.route("/_dump", "GET", self.handle_dump)
-		if catch_keys is True:
-			self.route("/<key>", "GET", self.handle_get)
-			self.route("/<key>", "POST", self.handle_set)
-			self.route("/<key>", "DELETE", self.handle_delete)
+		self.route("/", "TRANSACTION", self.handle_transaction)
+
+		self.route("/<key:path>", "GET", self.handle_get)
+		self.route("/<key:path>", "PUT", self.handle_set)
+		self.route("/<key:path>", "DELETE", self.handle_delete)
+
+	def _pick_return_type(self, default="application/octet-stream"):
+		if "Accept" in self.request.headers:
+			return werkzeug.http.parse_accept_header(self.request.headers["Accept"])[0][0]
+		return default
 
 	def handle_index(self):
-		bottle.response.content_type = "application/json"
+		self.response.content_type = "application/json"
 		stat = self.environment.stat
 		envinfo = self.environment.info
 		return json.dumps({
@@ -79,14 +82,7 @@ class Application(bottle.Bottle):
 		except KeyError:
 			bottle.response.status = 404
 			return json.dumps(self._key_error_to_json(key))
-		content_type = bottle.request.query.get("type", "binary")
-		bottle.response.content_type = {
-			"binary": "application/octet-stream",
-			"plain": "text/plain",
-			"xml": "application/xml",
-			"xhtml": "application/xhtml+xml",
-			"html": "text/html"
-		}.get(content_type, content_type)
+		self.response.content_type = self._pick_type()
 		return data
 
 	def handle_set(self, key):
@@ -167,17 +163,6 @@ class Application(bottle.Bottle):
 			"report": report
 		})
 
-	def handle_dump(self):
-		bottle.response.content_type = "application/json"
-		steps = []
-		with self.environment.begin() as txn:
-			for key, value in txn.cursor():
-				steps.append({"action": "set", "key": key.decode(), "value": value.decode()})
-		return json.dumps({
-			"write": True,
-			"steps": steps
-		})
-
 	def _key_error_to_json(self, key):
 		return {
 			"message": "exception",
@@ -195,11 +180,7 @@ class Application(bottle.Bottle):
 		}
 
 try:
-	if "LMDB_WEB_LIB" in os.environ:
-		_lib = lmdb.LibLMDB(os.environ["LMDB_WEB_LIB"])
-	else:
-		_lib = lmdb.LibLMDB()
-	_env = lmdb.Environment(_lib)
+	_env = lmdb.Environment(lmdb.lib)
 	if "LMDB_WEB_DBPATH" in os.environ:
 		if os.path.isfile(os.environ["LMDB_WEB_DBPATH"]):
 			_env.open(os.environ["LMDB_WEB_DBPATH"], lmdb.MDB_NOSUBDIR)
